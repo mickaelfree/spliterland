@@ -1021,17 +1021,34 @@
                 const ownedSelectors = [
                     ".owned-count", 
                     ".my-cards", 
-                    "[data-owned]",
-                    ".text-semibold:contains('owned')"
+                    "[data-owned]"
+                    // Suppression du sélecteur invalide: ".text-semibold:contains('owned')"
                 ];
                 
+                // Ajouter une recherche manuelle après la boucle des sélecteurs
+                let foundOwned = false;
                 for (const selector of ownedSelectors) {
                     const ownedEl = card.querySelector(selector);
                     if (ownedEl && ownedEl.textContent.trim() && /\d/.test(ownedEl.textContent)) {
                         owned = num(ownedEl.textContent);
                         if (owned > 0) {
                             console.log(`Carte Vue.js ${index + 1}: Possédées = ${owned}`);
+                            foundOwned = true;
                             break;
+                        }
+                    }
+                }
+                
+                // Si aucun sélecteur standard n'a fonctionné, rechercher manuellement
+                if (!foundOwned) {
+                    const textSemiboldElements = card.querySelectorAll(".text-semibold");
+                    for (let el of textSemiboldElements) {
+                        if (el.textContent.toLowerCase().includes('owned') && /\d/.test(el.textContent)) {
+                            owned = num(el.textContent);
+                            if (owned > 0) {
+                                console.log(`Carte Vue.js ${index + 1}: Possédées (méthode alternative) = ${owned}`);
+                                break;
+                            }
                         }
                     }
                 }
