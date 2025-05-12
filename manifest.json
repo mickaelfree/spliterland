@@ -1,0 +1,28 @@
+{
+        "manifest_version": 3,
+        "name": "PeakMonsters Deck Analyzer",
+        "version": "0.3.0",
+        "description": "Analyse PS & ROI sur PeakMonsters – BULK • GRID • LIST (stats extraites du tableau interne).",
+        "permissions": [
+                "storage",
+                "activeTab",
+                "scripting"
+        ],
+        "host_permissions": [
+                "https://peakmonsters.com/*"
+        ],
+        "content_scripts": [
+                {
+                        "matches": [
+                                "https://peakmonsters.com/*"
+                        ],
+                        "js": [
+                                "content.js"
+                        ],
+                        "run_at": "document_idle"
+                }
+        ],
+        "action": {
+                "default_title": "Deck Analyzer"
+        }
+}

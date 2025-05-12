@@ -1,0 +1,24 @@
+# Fichiers système et IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Dossiers de modules Node.js et fichiers de dépendance
+node_modules/
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+package-lock.json
+
+# Fichiers de build et de distribution
+dist/
+build/
+*.zip
+
+# Fichiers de configuration personnels
+.env
+.env.local
+.env.*.local 
