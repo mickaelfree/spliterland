@@ -1,8 +1,9 @@
 {
         "manifest_version": 3,
         "name": "PeakMonsters Deck Analyzer",
-        "version": "0.3.0",
-        "description": "Analyse PS & ROI sur PeakMonsters – BULK • GRID • LIST (stats extraites du tableau interne).",
+        "version": "0.5.0",
+        "description": "Analyse PS & ROI sur PeakMonsters avec générateur de deck optimal et système de synergies.",
+        "author": "Splinterlands Community",
         "permissions": [
                 "storage",
                 "activeTab",

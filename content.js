@@ -11,6 +11,7 @@
         const DEC_PER_MATCH = 0.04;       // DEC gagnés par match
         const WIN_RATE = 0.5;             // Taux de victoire moyen
         const MAX_COMPARE_CARDS = 4;      // Nombre maximum de cartes à comparer
+        const VERSION = "0.4.0";          // Version de l'extension
 
         // Données des capacités des cartes
         const CARD_ABILITIES = {
@@ -1741,56 +1742,90 @@
         
         // Fonction pour exporter les cartes au format CSV
         function exportCardsToCSV(cards) {
-            // Définir les en-têtes
+            if (!cards || !cards.length) return;
+            
+            // Headers
             const headers = [
-                "Nom", "Action", "Score", "Priorité", "PS", "Efficacité", 
-                "Prix/PS", "ROI", "ROI loc.", "Winrate", "Survie", 
-                "Mana", "Prix", "Possédée"
+                "Nom", "Mana", "Attaque", "Santé", "Vitesse", 
+                "Power Score", "ROI", "Prix", "Prix/PS", 
+                "Dégâts nets", "Survie (tours)", "Action"
             ];
             
-            // Créer les lignes de données
+            // Rows
             const rows = cards.map(card => [
                 card.name,
-                card.action,
-                card.valueScore.toFixed(0),
-                card.upgradeScore.toFixed(0),
-                card.ps.toFixed(1),
-                card.manaEfficiency ? card.manaEfficiency.toFixed(2) : '',
-                card.pricePerPS ? card.pricePerPS.toFixed(3) : '',
-                card.roi ? (card.roi * 100).toFixed(1) + '%' : '',
-                card.dailyROI ? (card.dailyROI * 100).toFixed(1) + '%' : '',
-                card.winrate !== null && card.winrate !== undefined ? (card.winrate * 100).toFixed(1) + '%' : '',
-                card.survival.toFixed(1) + ' tours',
                 card.mana,
-                card.price.toFixed(3),
-                card.owned
+                card.atk,
+                card.hp,
+                card.spd,
+                card.ps.toFixed(2),
+                card.roi ? pct(card.roi) : "N/A",
+                card.price ? `$${card.price.toFixed(2)}` : "N/A",
+                card.pricePerPS ? `$${card.pricePerPS.toFixed(3)}` : "N/A",
+                card.netDamage.toFixed(1),
+                card.survival.toFixed(1),
+                card.action
             ]);
             
-            // Assembler le CSV
-            let csvContent = headers.join(',') + '\n';
+            // Build CSV
+            let csv = headers.join(",") + "\n";
             rows.forEach(row => {
-                // Échapper les valeurs contenant des virgules
-                const escapedRow = row.map(value => {
-                    const strValue = String(value);
-                    return strValue.includes(',') ? `"${strValue}"` : strValue;
-                });
-                csvContent += escapedRow.join(',') + '\n';
+                csv += row.map(cell => `"${cell}"`).join(",") + "\n";
             });
             
-            // Créer un blob et un lien de téléchargement
-            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            // Download
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.setAttribute('href', url);
-            link.setAttribute('download', `splinterlands_cards_analysis_${new Date().toISOString().slice(0, 10)}.csv`);
+            link.setAttribute('download', `splinterlands_analysis_${new Date().toISOString().slice(0,10)}.csv`);
             link.style.display = 'none';
-            
-            // Déclencher le téléchargement
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
         }
         
+        // Nouvelle fonction pour exporter au format JSON
+        function exportCardsToJSON(cards) {
+            if (!cards || !cards.length) return;
+            
+            // Préparer les données pour l'export
+            const exportData = {
+                version: VERSION,
+                exportDate: new Date().toISOString(),
+                totalCards: cards.length,
+                cards: cards.map(card => ({
+                    name: card.name,
+                    id: card.id,
+                    mana: card.mana,
+                    atk: card.atk,
+                    hp: card.hp,
+                    spd: card.spd,
+                    ps: card.ps,
+                    roi: card.roi,
+                    price: card.price,
+                    pricePerPS: card.pricePerPS,
+                    netDamage: card.netDamage,
+                    survival: card.survival,
+                    action: card.action,
+                    abilities: card.abilities || [],
+                    valueScore: card.valueScore,
+                    owned: card.owned
+                }))
+            };
+            
+            // Créer et télécharger le fichier JSON
+            const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.setAttribute('href', url);
+            link.setAttribute('download', `splinterlands_analysis_${new Date().toISOString().slice(0,10)}.json`);
+            link.style.display = 'none';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
         // Fonction pour sauvegarder l'analyse
         function saveAnalysis(cards) {
             // Préparer un résumé des données importantes
@@ -1856,6 +1891,19 @@
                 document.body.removeChild(link);
                 
                 alert('Analyse exportée sous forme de fichier JSON.');
+            }
+
+            // Ajouter le bouton d'export JSON
+            const exportJSONBtn = document.createElement("button");
+            exportJSONBtn.textContent = "Exporter JSON";
+            exportJSONBtn.className = "pkm-button pkm-button-secondary";
+            exportJSONBtn.style.marginLeft = "10px";
+            exportJSONBtn.onclick = () => exportCardsToJSON(cards);
+            
+            // Ajouter à la barre d'outils
+            const toolbar = document.querySelector(".pkm-toolbar");
+            if (toolbar) {
+                toolbar.appendChild(exportJSONBtn);
             }
         }
 
@@ -3247,6 +3295,9 @@ User Agent: ${navigator.userAgent}
                         }
                 });
                 filtersObserver.observe(document.body, { childList: true, subtree: true });
+
+                // Afficher la version dans la console pour le débogage
+                console.log(`PeakMonsters Deck Analyzer v${VERSION} chargé`);
         });
 
         // Ajout des helpers pour les nouveaux KPIs
@@ -4286,5 +4337,1329 @@ User Agent: ${navigator.userAgent}
                     }
                 });
             }, 5000);
+        }
+
+        //--------------------------------------------------
+        // Analyse de méta et positions de cartes
+        //--------------------------------------------------
+        function analyzeMetaAndPositions(cards) {
+            // Données de méta (à remplacer par des données réelles ou une API)
+            const metaData = {
+                current: "Mana 30 - Terre/Eau",
+                topDecks: [
+                    { name: "Tank Terre + Soutien Eau", winrate: 0.68, manaCap: 30 },
+                    { name: "Sneak Mort + Magic Feu", winrate: 0.65, manaCap: 30 },
+                    { name: "Swarm Dragon", winrate: 0.62, manaCap: 25 }
+                ],
+                cardPositions: {
+                    // Format: cardName: { position: "tank|ranged|magic|support", winrate: 0.XX }
+                    "Pelacor Mercenary": { position: "tank", winrate: 0.72 },
+                    "Venari Heatsmith": { position: "support", winrate: 0.65 },
+                    "Twilight Basilisk": { position: "ranged", winrate: 0.61 },
+                    "Chain Spinner": { position: "magic", winrate: 0.58 }
+                    // Ajouter d'autres cartes selon les données disponibles
+                },
+                cardSynergies: {
+                    // Format: cardName: [{ partner: "Card Name", synergy: 0.XX }]
+                    "Pelacor Mercenary": [
+                        { partner: "Venari Crystalsmith", synergy: 0.75, description: "Heal sur Tank" },
+                        { partner: "Earth Elemental", synergy: 0.70, description: "Double Tank Terre" }
+                    ],
+                    "Twilight Basilisk": [
+                        { partner: "Deeplurker", synergy: 0.72, description: "Sneak + Ranged" }
+                    ]
+                    // Ajouter d'autres synergies
+                }
+            };
+
+            // Créer l'interface pour afficher les informations de méta
+            const metaOverlay = document.createElement("div");
+            metaOverlay.id = "pkm-meta-analyzer";
+            metaOverlay.innerHTML = `
+                <h2>Analyse de Méta</h2>
+                <button id="pkm-meta-close">×</button>
+                
+                <div class="meta-section">
+                    <h3>Méta Actuelle</h3>
+                    <div class="meta-current">${metaData.current}</div>
+                </div>
+                
+                <div class="meta-section">
+                    <h3>Decks Performants</h3>
+                    <div class="top-decks">
+                        ${metaData.topDecks.map(deck => `
+                            <div class="meta-deck">
+                                <div class="deck-name">${deck.name}</div>
+                                <div class="deck-stats">
+                                    <span class="deck-winrate">Winrate: ${(deck.winrate * 100).toFixed(1)}%</span>
+                                    <span class="deck-mana">Mana: ${deck.manaCap}</span>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+                
+                <div class="meta-section">
+                    <h3>Positions Optimales</h3>
+                    <div class="card-positions">
+                        <table class="positions-table">
+                            <thead>
+                                <tr>
+                                    <th>Carte</th>
+                                    <th>Position</th>
+                                    <th>Winrate</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${Object.entries(metaData.cardPositions)
+                                    .sort((a, b) => b[1].winrate - a[1].winrate)
+                                    .map(([card, data]) => `
+                                        <tr>
+                                            <td>${card}</td>
+                                            <td>${getPositionIcon(data.position)} ${data.position}</td>
+                                            <td>${(data.winrate * 100).toFixed(1)}%</td>
+                                        </tr>
+                                    `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <div class="meta-section">
+                    <h3>Synergies</h3>
+                    <div class="card-synergies">
+                        ${Object.entries(metaData.cardSynergies).map(([card, synergies]) => `
+                            <div class="synergy-group">
+                                <h4>${card}</h4>
+                                <ul class="synergy-list">
+                                    ${synergies.map(s => `
+                                        <li>
+                                            <span class="partner-name">${s.partner}</span>
+                                            <span class="synergy-value">${(s.synergy * 100).toFixed(0)}%</span>
+                                            <span class="synergy-desc">${s.description}</span>
+                                        </li>
+                                    `).join('')}
+                                </ul>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+
+            // Ajouter des styles pour l'analyse de méta
+            if (!document.getElementById('pkm-meta-style')) {
+                const style = document.createElement('style');
+                style.id = 'pkm-meta-style';
+                style.textContent = `
+                    #pkm-meta-analyzer {
+                        position: fixed;
+                        top: 5vh;
+                        left: 50%;
+                        transform: translateX(-50%);
+                        background: #fff;
+                        padding: 20px 24px;
+                        width: 90%;
+                        max-width: 900px;
+                        max-height: 90vh;
+                        overflow: auto;
+                        box-shadow: 0 6px 20px rgba(0,0,0,.2);
+                        border-radius: 12px;
+                        z-index: 10000;
+                        font-family: sans-serif;
+                    }
+                    #pkm-meta-analyzer h2 {
+                        margin: 0 0 20px;
+                        font-size: 24px;
+                        color: #333;
+                    }
+                    #pkm-meta-analyzer h3 {
+                        margin: 0 0 10px;
+                        font-size: 18px;
+                        color: #444;
+                    }
+                    #pkm-meta-analyzer h4 {
+                        margin: 10px 0 5px;
+                        font-size: 16px;
+                        color: #555;
+                    }
+                    #pkm-meta-close {
+                        position: absolute;
+                        top: 8px;
+                        right: 8px;
+                        cursor: pointer;
+                        font-size: 24px;
+                        background: none;
+                        border: none;
+                        color: #666;
+                    }
+                    .meta-section {
+                        margin-bottom: 25px;
+                        padding-bottom: 15px;
+                        border-bottom: 1px solid #eee;
+                    }
+                    .meta-current {
+                        font-size: 18px;
+                        font-weight: 600;
+                        color: #ff914d;
+                        padding: 10px;
+                        background: #fff9f5;
+                        border-radius: 5px;
+                        text-align: center;
+                    }
+                    .top-decks {
+                        display: grid;
+                        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+                        gap: 15px;
+                        margin-top: 15px;
+                    }
+                    .meta-deck {
+                        background: #f8f9fa;
+                        padding: 12px;
+                        border-radius: 8px;
+                        border-left: 4px solid #ff914d;
+                    }
+                    .deck-name {
+                        font-weight: 600;
+                        margin-bottom: 8px;
+                        color: #333;
+                    }
+                    .deck-stats {
+                        display: flex;
+                        justify-content: space-between;
+                        color: #666;
+                        font-size: 14px;
+                    }
+                    .deck-winrate {
+                        color: #28a745;
+                        font-weight: 500;
+                    }
+                    .positions-table {
+                        width: 100%;
+                        border-collapse: collapse;
+                        margin-top: 10px;
+                    }
+                    .positions-table th, .positions-table td {
+                        padding: 8px 12px;
+                        text-align: left;
+                        border-bottom: 1px solid #eee;
+                    }
+                    .positions-table th {
+                        background: #f5f5f5;
+                        font-weight: 600;
+                    }
+                    .synergy-group {
+                        margin-bottom: 15px;
+                    }
+                    .synergy-list {
+                        list-style: none;
+                        padding: 0;
+                        margin: 0;
+                    }
+                    .synergy-list li {
+                        display: flex;
+                        align-items: center;
+                        padding: 8px 0;
+                        border-bottom: 1px dashed #eee;
+                    }
+                    .partner-name {
+                        flex: 1;
+                        font-weight: 500;
+                    }
+                    .synergy-value {
+                        background: #e8f4ff;
+                        padding: 3px 8px;
+                        border-radius: 12px;
+                        margin: 0 10px;
+                        font-size: 13px;
+                        font-weight: 600;
+                        color: #0366d6;
+                    }
+                    .synergy-desc {
+                        color: #666;
+                        font-size: 13px;
+                        font-style: italic;
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+
+            // Ajouter au DOM
+            document.body.appendChild(metaOverlay);
+
+            // Gérer la fermeture - Correction du problème
+            const closeBtn = document.getElementById("pkm-meta-close");
+            if (closeBtn) {
+                closeBtn.addEventListener("click", function() {
+                    document.getElementById("pkm-meta-analyzer")?.remove();
+                });
+            }
+
+            // Fonction utilitaire pour obtenir une icône selon la position
+            function getPositionIcon(position) {
+                switch(position.toLowerCase()) {
+                    case 'tank': return '🛡️';
+                    case 'ranged': return '🏹';
+                    case 'magic': return '✨';
+                    case 'support': return '🧪';
+                    default: return '⚔️';
+                }
+            }
+        }
+
+        // Ajouter un bouton pour analyser la méta
+        function addMetaAnalysisButton() {
+            if (document.getElementById("pkm-meta-btn")) return;
+            const btn = document.createElement("button");
+            btn.id = "pkm-meta-btn";
+            btn.textContent = "Analyse Méta";
+            btn.style.cssText = `
+                position: fixed;
+                bottom: 24px;
+                right: 170px;  /* Décalé vers la gauche pour ne pas chevaucher le bouton d'analyse de deck */
+                padding: 10px 16px;
+                font-size: 14px;
+                background: #5d62d3;
+                color: #fff;
+                border: none;
+                border-radius: 8px;
+                cursor: pointer;
+                z-index: 9999;
+                box-shadow: 0 4px 10px rgba(0,0,0,.15);
+            `;
+            btn.onclick = () => analyzeMetaAndPositions();
+            document.body.appendChild(btn);
+        }
+
+        // Modifier la fonction d'initialisation pour ajouter le bouton d'analyse méta
+        window.addEventListener("load", () => {
+            injectStyles();
+            
+            // Observer pour le bouton d'analyse de deck
+            const analyzerObserver = new MutationObserver(() => {
+                if (document.querySelector(".card-stats tbody tr")) {
+                    addAnalyzeButton();
+                    addMetaAnalysisButton(); // Ajouter le bouton d'analyse méta
+                    analyzerObserver.disconnect();
+                }
+            });
+            analyzerObserver.observe(document.body, { childList: true, subtree: true });
+            
+            // ... existing code ...
+        });
+
+        // Ajouter après la fonction analyzeMetaAndPositions
+
+        // Constantes pour les éléments (couleurs) de Splinterlands
+        const SPLINTERLANDS_ELEMENTS = {
+            "fire": {
+                name: "Feu",
+                icon: "🔥",
+                color: "#ff4d4d",
+                strengths: ["Attaque élevée", "Dégâts de zone", "Enrage"],
+                weaknesses: ["Santé faible", "Vulnérable aux sorts d'eau"],
+                strategy: "Offensive agressive, éliminer rapidement les ennemis"
+            },
+            "water": {
+                name: "Eau",
+                icon: "💧",
+                color: "#4d94ff",
+                strengths: ["Heal", "Debuffs", "Magic"],
+                weaknesses: ["Vitesse moyenne", "Faible contre la terre"],
+                strategy: "Contrôle, survie prolongée et affaiblissement des ennemis"
+            },
+            "earth": {
+                name: "Terre",
+                icon: "🌿",
+                color: "#80cc33",
+                strengths: ["Santé élevée", "Poison", "Thorns"],
+                weaknesses: ["Vitesse faible", "Vulnérable au feu"],
+                strategy: "Défensive, tanks solides et dégâts sur la durée"
+            },
+            "life": {
+                name: "Vie",
+                icon: "✨",
+                color: "#ffcc00",
+                strengths: ["Heal", "Buffs", "Resurrect"],
+                weaknesses: ["Attaque moyenne", "Vulnérable à la mort"],
+                strategy: "Support, renforcement des alliés et guérison"
+            },
+            "death": {
+                name: "Mort",
+                icon: "💀",
+                color: "#9966cc",
+                strengths: ["Afflictions", "Drain", "Sneak"],
+                weaknesses: ["Santé faible", "Vulnérable à la vie"],
+                strategy: "Affaiblissement, vol de vie et attaques sournoises"
+            },
+            "dragon": {
+                name: "Dragon",
+                icon: "🐉",
+                color: "#ff9933",
+                strengths: ["Stats équilibrées", "Polyvalence", "Flying"],
+                weaknesses: ["Coût élevé", "Pas de spécialisation"],
+                strategy: "Flexibilité, adaptable à différentes situations"
+            },
+            "neutral": {
+                name: "Neutre",
+                icon: "⚪",
+                color: "#cccccc",
+                strengths: ["Utilisable partout", "Bonnes synergies"],
+                weaknesses: ["Pas de bonus d'élément"],
+                strategy: "Complément pour tous les decks, rôles variés"
+            }
+        };
+
+        // Positions de jeu
+        const BATTLE_POSITIONS = {
+            "tank": {
+                name: "Tank",
+                icon: "🛡️",
+                description: "Première position, absorbe les dégâts",
+                requirements: "Santé élevée, Armor, Taunt",
+                bestElements: ["earth", "life", "dragon"]
+            },
+            "attacker": {
+                name: "Attaquant",
+                icon: "⚔️",
+                description: "Deuxième position, inflige des dégâts élevés",
+                requirements: "Attaque élevée, Vitesse correcte",
+                bestElements: ["fire", "death", "dragon"]
+            },
+            "support": {
+                name: "Support",
+                icon: "🧪",
+                description: "Position arrière, buff/debuff",
+                requirements: "Capacités de soutien",
+                bestElements: ["water", "life"]
+            },
+            "sniper": {
+                name: "Sniper",
+                icon: "🏹",
+                description: "Position arrière, cible les ennemis spécifiques",
+                requirements: "Snipe, Sneak, ou Opportunity",
+                bestElements: ["water", "death"]
+            },
+            "magic": {
+                name: "Magicien",
+                icon: "✨",
+                description: "Position arrière, ignore l'armure",
+                requirements: "Attaque magique",
+                bestElements: ["water", "death", "fire"]
+            }
+        };
+
+        // Fonction pour analyser les decks par élément
+        function analyzeDecksByElement(cards) {
+            if (!cards || !cards.length) {
+                cards = scrapeCards();
+            }
+            
+            // Filtrer pour n'inclure que les cartes possédées
+            const ownedCards = cards.filter(card => card.owned > 0);
+            
+            // Créer un overlay pour afficher l'analyse
+            const overlay = document.createElement("div");
+            overlay.id = "pkm-deck-analyzer";
+            overlay.style.cssText = `
+                position: fixed;
+                top: 5vh;
+                left: 50%;
+                transform: translateX(-50%);
+                background: #fff;
+                padding: 20px 24px;
+                width: 90%;
+                max-width: 1000px;
+                max-height: 90vh;
+                overflow: auto;
+                box-shadow: 0 6px 20px rgba(0,0,0,.2);
+                border-radius: 12px;
+                z-index: 10000;
+                font-family: sans-serif;
+            `;
+            
+            // Déterminer l'élément de chaque carte (à partir du nom ou des propriétés)
+            ownedCards.forEach(card => {
+                // Logique simplifiée pour déterminer l'élément - à améliorer avec des données réelles
+                if (card.name.toLowerCase().includes("fire") || card.name.toLowerCase().includes("flame")) {
+                    card.element = "fire";
+                } else if (card.name.toLowerCase().includes("water") || card.name.toLowerCase().includes("wave")) {
+                    card.element = "water";
+                } else if (card.name.toLowerCase().includes("earth") || card.name.toLowerCase().includes("stone")) {
+                    card.element = "earth";
+                } else if (card.name.toLowerCase().includes("life") || card.name.toLowerCase().includes("light")) {
+                    card.element = "life";
+                } else if (card.name.toLowerCase().includes("death") || card.name.toLowerCase().includes("dark")) {
+                    card.element = "death";
+                } else if (card.name.toLowerCase().includes("dragon")) {
+                    card.element = "dragon";
+                } else {
+                    card.element = "neutral";
+                }
+                
+                // Déterminer la position recommandée
+                card.recommendedPosition = determineCardPosition(card);
+            });
+            
+            // Regrouper les cartes par élément
+            const cardsByElement = {};
+            Object.keys(SPLINTERLANDS_ELEMENTS).forEach(element => {
+                cardsByElement[element] = ownedCards.filter(card => card.element === element);
+            });
+            
+            // Générer le contenu HTML
+            let html = `
+                <h2>Analyse de Deck par Élément</h2>
+                <button id="pkm-deck-close" style="position: absolute; top: 10px; right: 10px; background: none; border: none; font-size: 24px; cursor: pointer;">×</button>
+                
+                <div class="element-tabs" style="display: flex; margin-bottom: 20px; border-bottom: 1px solid #eee;">
+                    ${Object.entries(SPLINTERLANDS_ELEMENTS).map(([key, element]) => `
+                        <div class="element-tab" data-element="${key}" style="padding: 10px 15px; cursor: pointer; margin-right: 5px; border-radius: 8px 8px 0 0; background: ${element.color}20;">
+                            ${element.icon} ${element.name}
+                        </div>
+                    `).join('')}
+                </div>
+                
+                <div class="element-content">
+                    ${Object.entries(SPLINTERLANDS_ELEMENTS).map(([key, element]) => `
+                        <div class="element-panel" id="element-panel-${key}" style="display: none;">
+                            <div class="element-header" style="background: ${element.color}20; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                                <h3>${element.icon} ${element.name}</h3>
+                                <div style="display: flex; justify-content: space-between; margin-top: 10px;">
+                                    <div>
+                                        <strong>Forces:</strong> ${element.strengths.join(", ")}
+                                    </div>
+                                    <div>
+                                        <strong>Faiblesses:</strong> ${element.weaknesses.join(", ")}
+                                    </div>
+                                </div>
+                                <div style="margin-top: 10px;">
+                                    <strong>Stratégie:</strong> ${element.strategy}
+                                </div>
+                            </div>
+                            
+                            <h4>Cartes ${element.name} Disponibles (${cardsByElement[key].length})</h4>
+                            ${cardsByElement[key].length > 0 ? `
+                                <div class="element-cards" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px;">
+                                    ${cardsByElement[key].map(card => `
+                                        <div class="element-card" style="border: 1px solid #eee; border-radius: 8px; padding: 12px; background: ${element.color}10;">
+                                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                                <strong>${card.name}</strong>
+                                                <span>${BATTLE_POSITIONS[card.recommendedPosition].icon} ${BATTLE_POSITIONS[card.recommendedPosition].name}</span>
+                                            </div>
+                                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px; font-size: 14px;">
+                                                <div>Mana: ${card.mana}</div>
+                                                <div>PS: ${card.ps.toFixed(1)}</div>
+                                                <div>Attaque: ${card.atk}</div>
+                                                <div>Santé: ${card.hp}</div>
+                                                <div>Vitesse: ${card.spd}</div>
+                                                <div>Armure: ${card.armor || 0}</div>
+                                            </div>
+                                            ${card.abilities && card.abilities.length ? `
+                                                <div style="margin-top: 8px; font-size: 13px;">
+                                                    <strong>Capacités:</strong> ${card.abilities.join(", ")}
+                                                </div>
+                                            ` : ''}
+                                        </div>
+                                    `).join('')}
+                                </div>
+                                
+                                <h4 style="margin-top: 20px;">Deck ${element.name} Recommandé</h4>
+                                <div class="recommended-deck" style="background: ${element.color}15; padding: 15px; border-radius: 8px;">
+                                    ${generateRecommendedDeck(cardsByElement[key])}
+                                </div>
+                                
+                                <h4 style="margin-top: 20px;">Conseils Tactiques</h4>
+                                <ul>
+                                    ${generateTacticalTips(key)}
+                                </ul>
+                            ` : `<p>Vous ne possédez pas de cartes de cet élément.</p>`}
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+            
+            overlay.innerHTML = html;
+            document.body.appendChild(overlay);
+            
+            // Ajouter les gestionnaires d'événements pour les onglets
+            const tabs = overlay.querySelectorAll('.element-tab');
+            tabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    const element = tab.getAttribute('data-element');
+                    
+                    // Masquer tous les panneaux
+                    overlay.querySelectorAll('.element-panel').forEach(panel => {
+                        panel.style.display = 'none';
+                    });
+                    
+                    // Réinitialiser les styles des onglets
+                    tabs.forEach(t => {
+                        const el = SPLINTERLANDS_ELEMENTS[t.getAttribute('data-element')];
+                        t.style.background = `${el.color}20`;
+                        t.style.fontWeight = 'normal';
+                    });
+                    
+                    // Afficher le panneau sélectionné
+                    document.getElementById(`element-panel-${element}`).style.display = 'block';
+                    
+                    // Mettre en évidence l'onglet sélectionné
+                    tab.style.background = `${SPLINTERLANDS_ELEMENTS[element].color}40`;
+                    tab.style.fontWeight = 'bold';
+                });
+            });
+            
+            // Afficher le premier élément par défaut
+            tabs[0].click();
+            
+            // Gestionnaire pour fermer l'overlay
+            document.getElementById('pkm-deck-close').addEventListener('click', () => {
+                overlay.remove();
+            });
+        }
+
+        // Fonction pour déterminer la position recommandée d'une carte
+        function determineCardPosition(card) {
+            // Logique simplifiée - à améliorer avec des données réelles
+            if (card.hp > 8 && card.armor > 0) {
+                return "tank";
+            } else if (card.atk > 3 && card.spd >= 3) {
+                return "attacker";
+            } else if (card.abilities && (card.abilities.includes("Heal") || card.abilities.includes("Protect"))) {
+                return "support";
+            } else if (card.abilities && (card.abilities.includes("Snipe") || card.abilities.includes("Sneak"))) {
+                return "sniper";
+            } else if (card.abilities && card.abilities.includes("Magic")) {
+                return "magic";
+            } else if (card.hp > 6) {
+                return "tank";
+            } else {
+                return "attacker";
+            }
+        }
+
+        // Fonction pour générer un deck recommandé à partir des cartes disponibles
+        function generateRecommendedDeck(cards) {
+            if (!cards || cards.length === 0) return "<p>Pas assez de cartes pour former un deck.</p>";
+            
+            // Trier les cartes par position et PS
+            const sortedByPosition = {
+                tank: cards.filter(c => c.recommendedPosition === "tank").sort((a, b) => b.ps - a.ps),
+                attacker: cards.filter(c => c.recommendedPosition === "attacker").sort((a, b) => b.ps - a.ps),
+                support: cards.filter(c => c.recommendedPosition === "support").sort((a, b) => b.ps - a.ps),
+                sniper: cards.filter(c => c.recommendedPosition === "sniper").sort((a, b) => b.ps - a.ps),
+                magic: cards.filter(c => c.recommendedPosition === "magic").sort((a, b) => b.ps - a.ps)
+            };
+            
+            // Sélectionner les meilleures cartes pour chaque position
+            const bestTank = sortedByPosition.tank[0] || null;
+            const bestAttacker = sortedByPosition.attacker[0] || null;
+            const bestSupport = sortedByPosition.support[0] || null;
+            const bestSniper = sortedByPosition.sniper[0] || null;
+            const bestMagic = sortedByPosition.magic[0] || null;
+            
+            // Sélectionner des cartes supplémentaires pour compléter le deck
+            const remainingCards = cards
+                .filter(c => c !== bestTank && c !== bestAttacker && c !== bestSupport && c !== bestSniper && c !== bestMagic)
+                .sort((a, b) => b.ps - a.ps);
+            
+            const additionalCards = remainingCards.slice(0, 2); // Prendre les 2 meilleures cartes restantes
+            
+            // Générer le HTML pour le deck recommandé
+            let html = `<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px;">`;
+            
+            // Ajouter les cartes par position
+            [
+                {card: bestTank, position: "tank"},
+                {card: bestAttacker, position: "attacker"},
+                {card: bestSupport, position: "support"},
+                {card: bestSniper, position: "sniper"},
+                {card: bestMagic, position: "magic"},
+                ...additionalCards.map(card => ({card, position: card.recommendedPosition}))
+            ].forEach(item => {
+                if (item.card) {
+                    const position = BATTLE_POSITIONS[item.position];
+                    html += `
+                        <div style="border: 1px solid #ddd; border-radius: 6px; padding: 10px; background: #f9f9f9;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                                <strong>${item.card.name}</strong>
+                                <span>${position.icon}</span>
+                            </div>
+                            <div style="font-size: 13px; color: #666;">
+                                Mana: ${item.card.mana} | PS: ${item.card.ps.toFixed(1)}
+                            </div>
+                        </div>
+                    `;
+                }
+            });
+            
+            html += `</div>`;
+            
+            // Ajouter le coût total en mana
+            const totalMana = [bestTank, bestAttacker, bestSupport, bestSniper, bestMagic, ...additionalCards]
+                .filter(Boolean)
+                .reduce((sum, card) => sum + card.mana, 0);
+            
+            html += `<div style="margin-top: 15px; text-align: right;">
+                <strong>Coût total en mana:</strong> ${totalMana}
+            </div>`;
+            
+            return html;
+        }
+
+        // Fonction pour générer des conseils tactiques selon l'élément
+        function generateTacticalTips(element) {
+            const tips = {
+                "fire": [
+                    "Placez vos attaquants de feu en deuxième position pour maximiser les dégâts",
+                    "Combinez avec des tanks de terre pour compenser la faible santé",
+                    "Utilisez des cartes avec Enrage pour augmenter les dégâts au fil du combat",
+                    "Évitez les matchups contre des decks eau qui peuvent contrer vos attaques"
+                ],
+                "water": [
+                    "Utilisez des debuffs pour réduire l'efficacité des ennemis puissants",
+                    "Placez vos magiciens d'eau en position arrière pour les protéger",
+                    "Combinez avec des tanks de vie pour une stratégie défensive solide",
+                    "Efficace contre les decks feu grâce aux sorts d'eau"
+                ],
+                "earth": [
+                    "Placez vos tanks de terre en première ligne pour absorber les dégâts",
+                    "Utilisez Poison pour des dégâts sur la durée contre les ennemis à haute santé",
+                    "Combinez avec des healers de vie pour prolonger la survie de vos tanks",
+                    "Efficace contre les decks eau mais vulnérable au feu"
+                ],
+                "life": [
+                    "Placez vos healers en position arrière pour les protéger",
+                    "Utilisez Resurrect pour donner une seconde chance à vos cartes puissantes",
+                    "Combinez avec des attaquants de feu pour une stratégie équilibrée",
+                    "Efficace contre les decks mort mais vulnérable aux attaques directes"
+                ],
+                "death": [
+                    "Utilisez Sneak pour cibler directement les unités arrière ennemies",
+                    "Placez vos cartes avec Affliction en position sûre pour maximiser leur effet",
+                    "Combinez avec des tanks neutres pour compenser la faible santé",
+                    "Efficace contre les decks eau et terre mais vulnérable à la vie"
+                ],
+                "dragon": [
+                    "Utilisez la polyvalence des dragons pour adapter votre stratégie pendant le combat",
+                    "Placez vos dragons selon leurs capacités spécifiques plutôt que leur élément",
+                    "Combinez avec des cartes neutres pour des synergies efficaces",
+                    "Efficace dans la plupart des situations mais coûteux en mana"
+                ],
+                "neutral": [
+                    "Utilisez des cartes neutres pour compléter les faiblesses de votre élément principal",
+                    "Placez vos cartes neutres selon leurs capacités spécifiques",
+                    "Combinez avec n'importe quel élément pour des synergies flexibles",
+                    "Utile dans tous les decks mais sans bonus d'élément"
+                ]
+            };
+            
+            return tips[element].map(tip => `<li>${tip}</li>`).join('');
+        }
+
+        // Ajouter un bouton pour l'analyse de deck
+        function addDeckAnalysisButton() {
+            if (document.getElementById("pkm-deck-btn")) return;
+            
+            const btn = document.createElement("button");
+            btn.id = "pkm-deck-btn";
+            btn.textContent = "Analyse de Deck";
+            btn.style.cssText = `
+                position: fixed;
+                bottom: 24px;
+                right: 320px;  /* Décalé pour ne pas chevaucher les autres boutons */
+                padding: 10px 16px;
+                font-size: 14px;
+                background: #80cc33;
+                color: #fff;
+                border: none;
+                border-radius: 8px;
+                cursor: pointer;
+                z-index: 9999;
+                box-shadow: 0 4px 10px rgba(0,0,0,.15);
+            `;
+            
+            btn.onclick = () => analyzeDecksByElement();
+            document.body.appendChild(btn);
+        }
+
+        // Modifier la fonction d'initialisation pour ajouter le nouveau bouton
+        window.addEventListener("load", () => {
+            injectStyles();
+            
+            // Observer pour le bouton d'analyse de deck
+            const analyzerObserver = new MutationObserver(() => {
+                if (document.querySelector(".card-stats tbody tr")) {
+                    addAnalyzeButton();
+                    addMetaAnalysisButton();
+                    addDeckAnalysisButton(); // Ajouter le nouveau bouton
+                    analyzerObserver.disconnect();
+                }
+            });
+            analyzerObserver.observe(document.body, { childList: true, subtree: true });
+            
+            // Afficher la version dans la console pour le débogage
+            console.log(`PeakMonsters Deck Analyzer v${VERSION} chargé`);
+        });
+
+        // Après la fonction generateTacticalTips, ajouter ces nouvelles fonctions
+
+        // Système de synergies entre cartes
+        const CARD_SYNERGIES = {
+            "tank-healer": {
+                description: "Le healer prolonge la survie du tank",
+                bonus: 2.5,
+                condition: (card1, card2) => {
+                    return (card1.recommendedPosition === "tank" && card2.abilities && card2.abilities.includes("Heal")) ||
+                           (card2.recommendedPosition === "tank" && card1.abilities && card1.abilities.includes("Heal"));
+                }
+            },
+            "sniper-tank": {
+                description: "Le tank protège le sniper pendant qu'il élimine les cibles",
+                bonus: 2.0,
+                condition: (card1, card2) => {
+                    return (card1.recommendedPosition === "tank" && card2.recommendedPosition === "sniper") ||
+                           (card2.recommendedPosition === "tank" && card1.recommendedPosition === "sniper");
+                }
+            },
+            "magic-armor": {
+                description: "Les attaques magiques ignorent l'armure ennemie",
+                bonus: 1.8,
+                condition: (card1, card2) => {
+                    return (card1.abilities && card1.abilities.includes("Magic") && card2.abilities && card2.abilities.includes("Magic"));
+                }
+            },
+            "speed-boost": {
+                description: "Cartes rapides qui agissent avant l'ennemi",
+                bonus: 1.5,
+                condition: (card1, card2) => {
+                    return card1.spd >= 4 && card2.spd >= 4;
+                }
+            },
+            "poison-slow": {
+                description: "Ralentir l'ennemi tout en appliquant du poison",
+                bonus: 2.2,
+                condition: (card1, card2) => {
+                    return (card1.abilities && card1.abilities.includes("Poison") && card2.abilities && card2.abilities.includes("Slow")) ||
+                           (card2.abilities && card2.abilities.includes("Poison") && card1.abilities && card1.abilities.includes("Slow"));
+                }
+            },
+            "flying-ranged": {
+                description: "Attaques à distance depuis les airs",
+                bonus: 1.7,
+                condition: (card1, card2) => {
+                    return (card1.abilities && card1.abilities.includes("Flying") && card2.abilities && card2.abilities.includes("Snipe")) ||
+                           (card2.abilities && card2.abilities.includes("Flying") && card1.abilities && card1.abilities.includes("Snipe"));
+                }
+            },
+            "thorns-taunt": {
+                description: "Forcer l'ennemi à attaquer et subir des dégâts en retour",
+                bonus: 2.3,
+                condition: (card1, card2) => {
+                    return (card1.abilities && card1.abilities.includes("Thorns") && card2.abilities && card2.abilities.includes("Taunt")) ||
+                           (card2.abilities && card2.abilities.includes("Thorns") && card1.abilities && card1.abilities.includes("Taunt"));
+                }
+            },
+            "same-element": {
+                description: "Bonus d'élément pour cartes de même type",
+                bonus: 1.3,
+                condition: (card1, card2) => {
+                    return card1.element === card2.element && card1.element !== "neutral" && card2.element !== "neutral";
+                }
+            }
+        };
+
+        // Fonction pour évaluer les synergies entre deux cartes
+        function evaluateSynergy(card1, card2) {
+            let synergies = [];
+            let totalBonus = 1.0;
+            
+            Object.entries(CARD_SYNERGIES).forEach(([key, synergy]) => {
+                if (synergy.condition(card1, card2)) {
+                    synergies.push({
+                        name: key,
+                        description: synergy.description,
+                        bonus: synergy.bonus
+                    });
+                    totalBonus *= synergy.bonus;
+                }
+            });
+            
+            return {
+                synergies,
+                totalBonus,
+                score: totalBonus * (card1.ps + card2.ps) / 2
+            };
+        }
+
+        // Fonction pour générer un deck optimal basé sur les règles de mana et les synergies
+        function generateOptimalDeck(cards, manaLimit = 30) {
+            if (!cards || cards.length < 7) return null;
+            
+            // Trier les cartes par position et PS
+            const positionGroups = {
+                tank: cards.filter(c => c.recommendedPosition === "tank").sort((a, b) => b.ps - a.ps),
+                attacker: cards.filter(c => c.recommendedPosition === "attacker").sort((a, b) => b.ps - a.ps),
+                support: cards.filter(c => c.recommendedPosition === "support").sort((a, b) => b.ps - a.ps),
+                sniper: cards.filter(c => c.recommendedPosition === "sniper").sort((a, b) => b.ps - a.ps),
+                magic: cards.filter(c => c.recommendedPosition === "magic").sort((a, b) => b.ps - a.ps)
+            };
+            
+            // Vérifier si nous avons assez de cartes pour chaque position clé
+            if (positionGroups.tank.length === 0 || 
+                (positionGroups.attacker.length === 0 && positionGroups.magic.length === 0)) {
+                return null;
+            }
+            
+            // Commencer par sélectionner le meilleur tank
+            const selectedCards = [positionGroups.tank[0]];
+            let remainingMana = manaLimit - positionGroups.tank[0].mana;
+            
+            // Ajouter un attaquant principal
+            if (positionGroups.attacker.length > 0) {
+                const bestAttacker = positionGroups.attacker[0];
+                if (remainingMana >= bestAttacker.mana) {
+                    selectedCards.push(bestAttacker);
+                    remainingMana -= bestAttacker.mana;
+                }
+            }
+            
+            // Ajouter un magicien si possible
+            if (positionGroups.magic.length > 0) {
+                const bestMagic = positionGroups.magic[0];
+                if (remainingMana >= bestMagic.mana) {
+                    selectedCards.push(bestMagic);
+                    remainingMana -= bestMagic.mana;
+                }
+            }
+            
+            // Ajouter un support si possible
+            if (positionGroups.support.length > 0) {
+                const bestSupport = positionGroups.support[0];
+                if (remainingMana >= bestSupport.mana) {
+                    selectedCards.push(bestSupport);
+                    remainingMana -= bestSupport.mana;
+                }
+            }
+            
+            // Ajouter un sniper si possible
+            if (positionGroups.sniper.length > 0) {
+                const bestSniper = positionGroups.sniper[0];
+                if (remainingMana >= bestSniper.mana) {
+                    selectedCards.push(bestSniper);
+                    remainingMana -= bestSniper.mana;
+                }
+            }
+            
+            // Créer une liste de toutes les cartes restantes non sélectionnées
+            const remainingCards = cards.filter(card => !selectedCards.includes(card))
+                               .sort((a, b) => b.ps - a.ps);
+            
+            // Évaluer les synergies pour chaque carte restante avec les cartes déjà sélectionnées
+            const cardsWithSynergy = remainingCards.map(card => {
+                let totalSynergyScore = 0;
+                let synergyDetails = [];
+                
+                selectedCards.forEach(selectedCard => {
+                    const synergy = evaluateSynergy(card, selectedCard);
+                    totalSynergyScore += synergy.score;
+                    
+                    if (synergy.synergies.length > 0) {
+                        synergyDetails.push({
+                            withCard: selectedCard.name,
+                            synergies: synergy.synergies
+                        });
+                    }
+                });
+                
+                return {
+                    card,
+                    synergyScore: totalSynergyScore,
+                    synergyDetails,
+                    valuePerMana: card.ps / card.mana
+                };
+            });
+            
+            // Trier par meilleur rapport synergie/mana
+            cardsWithSynergy.sort((a, b) => {
+                // Favoriser les cartes avec synergies
+                if (a.synergyScore > 0 && b.synergyScore === 0) return -1;
+                if (a.synergyScore === 0 && b.synergyScore > 0) return 1;
+                
+                // Si les deux ont des synergies, comparer le rapport synergie/mana
+                if (a.synergyScore > 0 && b.synergyScore > 0) {
+                    return (b.synergyScore / b.card.mana) - (a.synergyScore / a.card.mana);
+                }
+                
+                // Sinon, utiliser le rapport PS/mana
+                return b.valuePerMana - a.valuePerMana;
+            });
+            
+            // Ajouter les meilleures cartes restantes jusqu'à la limite de mana
+            for (const cardData of cardsWithSynergy) {
+                if (selectedCards.length >= 7) break; // Maximum 7 cartes dans un deck
+                
+                if (remainingMana >= cardData.card.mana) {
+                    selectedCards.push(cardData.card);
+                    remainingMana -= cardData.card.mana;
+                }
+            }
+            
+            // Calculer les synergies entre toutes les cartes sélectionnées
+            const deckSynergies = [];
+            for (let i = 0; i < selectedCards.length; i++) {
+                for (let j = i + 1; j < selectedCards.length; j++) {
+                    const synergy = evaluateSynergy(selectedCards[i], selectedCards[j]);
+                    if (synergy.synergies.length > 0) {
+                        deckSynergies.push({
+                            card1: selectedCards[i].name,
+                            card2: selectedCards[j].name,
+                            synergies: synergy.synergies
+                        });
+                    }
+                }
+            }
+            
+            // Calculer le score total du deck
+            const deckPowerScore = selectedCards.reduce((sum, card) => sum + card.ps, 0);
+            const totalMana = selectedCards.reduce((sum, card) => sum + card.mana, 0);
+            const deckEfficiency = deckPowerScore / totalMana;
+            
+            return {
+                cards: selectedCards,
+                totalMana,
+                remainingMana,
+                deckPowerScore,
+                deckEfficiency,
+                synergies: deckSynergies
+            };
+        }
+
+        // Modifier la fonction analyzeDecksByElement pour inclure le générateur de deck optimal
+        function analyzeDecksByElement(cards) {
+            if (!cards || !cards.length) {
+                cards = scrapeCards();
+            }
+            
+            // Filtrer pour n'inclure que les cartes possédées
+            const ownedCards = cards.filter(card => card.owned > 0);
+            
+            // Créer un overlay pour afficher l'analyse
+            const overlay = document.createElement("div");
+            overlay.id = "pkm-deck-analyzer";
+            overlay.style.cssText = `
+                position: fixed;
+                top: 5vh;
+                left: 50%;
+                transform: translateX(-50%);
+                background: #fff;
+                padding: 20px 24px;
+                width: 90%;
+                max-width: 1000px;
+                max-height: 90vh;
+                overflow: auto;
+                box-shadow: 0 6px 20px rgba(0,0,0,.2);
+                border-radius: 12px;
+                z-index: 10000;
+                font-family: sans-serif;
+            `;
+            
+            // Déterminer l'élément de chaque carte (à partir du nom ou des propriétés)
+            ownedCards.forEach(card => {
+                // Logique simplifiée pour déterminer l'élément - à améliorer avec des données réelles
+                if (card.name.toLowerCase().includes("fire") || card.name.toLowerCase().includes("flame")) {
+                    card.element = "fire";
+                } else if (card.name.toLowerCase().includes("water") || card.name.toLowerCase().includes("wave")) {
+                    card.element = "water";
+                } else if (card.name.toLowerCase().includes("earth") || card.name.toLowerCase().includes("stone")) {
+                    card.element = "earth";
+                } else if (card.name.toLowerCase().includes("life") || card.name.toLowerCase().includes("light")) {
+                    card.element = "life";
+                } else if (card.name.toLowerCase().includes("death") || card.name.toLowerCase().includes("dark")) {
+                    card.element = "death";
+                } else if (card.name.toLowerCase().includes("dragon")) {
+                    card.element = "dragon";
+                } else {
+                    card.element = "neutral";
+                }
+                
+                // Déterminer la position recommandée
+                card.recommendedPosition = determineCardPosition(card);
+            });
+            
+            // Regrouper les cartes par élément
+            const cardsByElement = {};
+            Object.keys(SPLINTERLANDS_ELEMENTS).forEach(element => {
+                cardsByElement[element] = ownedCards.filter(card => card.element === element);
+            });
+            
+            // Générer des decks optimaux pour chaque élément
+            const optimalDecks = {};
+            Object.keys(SPLINTERLANDS_ELEMENTS).forEach(element => {
+                // Pour chaque élément, inclure aussi les cartes neutres
+                const elementCards = [
+                    ...cardsByElement[element],
+                    ...cardsByElement["neutral"]
+                ];
+                
+                // Générer un deck optimal pour cet élément
+                optimalDecks[element] = generateOptimalDeck(elementCards);
+            });
+            
+            // Trouver le meilleur deck global toutes couleurs confondues
+            const allCards = [...ownedCards];
+            const bestOverallDeck = generateOptimalDeck(allCards);
+            
+            // Générer le contenu HTML
+            let html = `
+                <h2>Analyse de Deck par Élément</h2>
+                <button id="pkm-deck-close" style="position: absolute; top: 10px; right: 10px; background: none; border: none; font-size: 24px; cursor: pointer;">×</button>
+                
+                <div class="mana-filter" style="margin-bottom: 20px;">
+                    <label for="mana-limit">Limite de mana:</label>
+                    <input type="range" id="mana-limit" min="15" max="50" value="30" step="1" style="width: 200px;">
+                    <span id="mana-value">30</span>
+                    <button id="regenerate-decks" style="margin-left: 15px; padding: 5px 10px; background: #5d62d3; color: white; border: none; border-radius: 4px; cursor: pointer;">Régénérer</button>
+                </div>
+                
+                <div class="element-tabs" style="display: flex; margin-bottom: 20px; border-bottom: 1px solid #eee;">
+                    <div class="element-tab" data-element="best" style="padding: 10px 15px; cursor: pointer; margin-right: 5px; border-radius: 8px 8px 0 0; background: #5d62d320;">
+                        🏆 Meilleur Deck
+                    </div>
+                    ${Object.entries(SPLINTERLANDS_ELEMENTS).map(([key, element]) => `
+                        <div class="element-tab" data-element="${key}" style="padding: 10px 15px; cursor: pointer; margin-right: 5px; border-radius: 8px 8px 0 0; background: ${element.color}20;">
+                            ${element.icon} ${element.name}
+                        </div>
+                    `).join('')}
+                </div>
+                
+                <div class="element-content">
+                    <div class="element-panel" id="element-panel-best" style="display: none;">
+                        <div class="element-header" style="background: #5d62d320; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                            <h3>🏆 Meilleur Deck Global</h3>
+                            <div style="margin-top: 10px;">
+                                <strong>Stratégie:</strong> Deck le plus puissant basé sur vos cartes disponibles, toutes couleurs confondues
+                            </div>
+                        </div>
+                        
+                        ${bestOverallDeck ? renderOptimalDeck(bestOverallDeck) : "<p>Pas assez de cartes pour former un deck optimal.</p>"}
+                    </div>
+                
+                    ${Object.entries(SPLINTERLANDS_ELEMENTS).map(([key, element]) => `
+                        <div class="element-panel" id="element-panel-${key}" style="display: none;">
+                            <div class="element-header" style="background: ${element.color}20; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                                <h3>${element.icon} ${element.name}</h3>
+                                <div style="display: flex; justify-content: space-between; margin-top: 10px;">
+                                    <div>
+                                        <strong>Forces:</strong> ${element.strengths.join(", ")}
+                                    </div>
+                                    <div>
+                                        <strong>Faiblesses:</strong> ${element.weaknesses.join(", ")}
+                                    </div>
+                                </div>
+                                <div style="margin-top: 10px;">
+                                    <strong>Stratégie:</strong> ${element.strategy}
+                                </div>
+                            </div>
+                            
+                            <h4>Deck ${element.name} Optimal</h4>
+                            ${optimalDecks[key] ? renderOptimalDeck(optimalDecks[key]) : `<p>Pas assez de cartes ${element.name} pour former un deck optimal.</p>`}
+                            
+                            <h4 style="margin-top: 30px;">Cartes ${element.name} Disponibles (${cardsByElement[key].length})</h4>
+                            ${cardsByElement[key].length > 0 ? `
+                                <div class="element-cards" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px;">
+                                    ${cardsByElement[key].map(card => `
+                                        <div class="element-card" style="border: 1px solid #eee; border-radius: 8px; padding: 12px; background: ${element.color}10;">
+                                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                                <strong>${card.name}</strong>
+                                                <span>${BATTLE_POSITIONS[card.recommendedPosition].icon} ${BATTLE_POSITIONS[card.recommendedPosition].name}</span>
+                                            </div>
+                                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px; font-size: 14px;">
+                                                <div>Mana: ${card.mana}</div>
+                                                <div>PS: ${card.ps.toFixed(1)}</div>
+                                                <div>Attaque: ${card.atk}</div>
+                                                <div>Santé: ${card.hp}</div>
+                                                <div>Vitesse: ${card.spd}</div>
+                                                <div>Armure: ${card.armor || 0}</div>
+                                            </div>
+                                            ${card.abilities && card.abilities.length ? `
+                                                <div style="margin-top: 8px; font-size: 13px;">
+                                                    <strong>Capacités:</strong> ${card.abilities.join(", ")}
+                                                </div>
+                                            ` : ''}
+                                        </div>
+                                    `).join('')}
+                                </div>
+                                
+                                <h4 style="margin-top: 20px;">Conseils Tactiques</h4>
+                                <ul>
+                                    ${generateTacticalTips(key)}
+                                </ul>
+                            ` : `<p>Vous ne possédez pas de cartes de cet élément.</p>`}
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+            
+            overlay.innerHTML = html;
+            document.body.appendChild(overlay);
+            
+            // Fonction pour afficher un deck optimal
+            function renderOptimalDeck(deck) {
+                if (!deck) return "<p>Impossible de générer un deck optimal avec les cartes disponibles.</p>";
+                
+                let html = `
+                    <div class="optimal-deck" style="background: #f9f9f9; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                        <div class="deck-stats" style="display: flex; justify-content: space-between; margin-bottom: 15px; background: #fff; padding: 10px; border-radius: 6px;">
+                            <div><strong>Score de puissance:</strong> ${deck.deckPowerScore.toFixed(1)}</div>
+                            <div><strong>Mana total:</strong> ${deck.totalMana}/${document.getElementById('mana-limit')?.value || 30}</div>
+                            <div><strong>Efficacité:</strong> ${deck.deckEfficiency.toFixed(2)} PS/mana</div>
+                        </div>
+                        
+                        <div class="deck-cards" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; margin-bottom: 20px;">
+                            ${deck.cards.map(card => {
+                                const position = BATTLE_POSITIONS[card.recommendedPosition];
+                                const elementColor = SPLINTERLANDS_ELEMENTS[card.element]?.color || "#cccccc";
+                                
+                                return `
+                                    <div class="deck-card" style="border: 2px solid ${elementColor}; border-radius: 6px; padding: 10px; background: #fff;">
+                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                                            <strong>${card.name}</strong>
+                                            <div>
+                                                <span style="margin-right: 5px;">${SPLINTERLANDS_ELEMENTS[card.element]?.icon || "⚪"}</span>
+                                                <span>${position.icon}</span>
+                                            </div>
+                                        </div>
+                                        <div style="font-size: 13px; color: #666; display: flex; justify-content: space-between;">
+                                            <div>Mana: ${card.mana}</div>
+                                            <div>PS: ${card.ps.toFixed(1)}</div>
+                                        </div>
+                                        ${card.abilities && card.abilities.length ? `
+                                            <div style="margin-top: 5px; font-size: 12px; color: #555;">
+                                                ${card.abilities.slice(0, 2).join(", ")}${card.abilities.length > 2 ? "..." : ""}
+                                            </div>
+                                        ` : ''}
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                        
+                        ${deck.synergies.length > 0 ? `
+                            <div class="deck-synergies">
+                                <h4 style="margin-top: 0; margin-bottom: 10px;">Synergies (${deck.synergies.length})</h4>
+                                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px;">
+                                    ${deck.synergies.map(synergy => `
+                                        <div style="background: #fff; padding: 8px 12px; border-radius: 6px; font-size: 14px;">
+                                            <div style="font-weight: 500; margin-bottom: 5px;">
+                                                ${synergy.card1} + ${synergy.card2}
+                                            </div>
+                                            <ul style="margin: 0; padding-left: 20px; color: #666;">
+                                                ${synergy.synergies.map(s => `
+                                                    <li>${s.description} (+${((s.bonus - 1) * 100).toFixed(0)}%)</li>
+                                                `).join('')}
+                                            </ul>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+                
+                return html;
+            }
+            
+            // Ajouter les gestionnaires d'événements pour les onglets
+            const tabs = overlay.querySelectorAll('.element-tab');
+            tabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    const element = tab.getAttribute('data-element');
+                    
+                    // Masquer tous les panneaux
+                    overlay.querySelectorAll('.element-panel').forEach(panel => {
+                        panel.style.display = 'none';
+                    });
+                    
+                    // Réinitialiser les styles des onglets
+                    tabs.forEach(t => {
+                        const el = t.getAttribute('data-element');
+                        if (el === "best") {
+                            t.style.background = "#5d62d320";
+                        } else {
+                            const elementData = SPLINTERLANDS_ELEMENTS[el];
+                            t.style.background = `${elementData.color}20`;
+                        }
+                        t.style.fontWeight = 'normal';
+                    });
+                    
+                    // Afficher le panneau sélectionné
+                    document.getElementById(`element-panel-${element}`).style.display = 'block';
+                    
+                    // Mettre en évidence l'onglet sélectionné
+                    if (element === "best") {
+                        tab.style.background = "#5d62d360";
+                    } else {
+                        tab.style.background = `${SPLINTERLANDS_ELEMENTS[element].color}40`;
+                    }
+                    tab.style.fontWeight = 'bold';
+                });
+            });
+            
+            // Gestionnaire pour le slider de mana
+            const manaSlider = document.getElementById('mana-limit');
+            const manaValue = document.getElementById('mana-value');
+            const regenerateBtn = document.getElementById('regenerate-decks');
+            
+            if (manaSlider && manaValue) {
+                manaSlider.addEventListener('input', () => {
+                    manaValue.textContent = manaSlider.value;
+                });
+            }
+            
+            if (regenerateBtn) {
+                regenerateBtn.addEventListener('click', () => {
+                    const manaLimit = parseInt(manaSlider.value, 10);
+                    
+                    // Régénérer tous les decks avec la nouvelle limite de mana
+                    Object.keys(SPLINTERLANDS_ELEMENTS).forEach(element => {
+                        const elementCards = [
+                            ...cardsByElement[element],
+                            ...cardsByElement["neutral"]
+                        ];
+                        
+                        optimalDecks[element] = generateOptimalDeck(elementCards, manaLimit);
+                        
+                        // Mettre à jour l'affichage du deck
+                        const deckPanel = document.getElementById(`element-panel-${element}`);
+                        if (deckPanel) {
+                            const deckSection = deckPanel.querySelector('h4 + div');
+                            if (deckSection) {
+                                deckSection.innerHTML = optimalDecks[element] 
+                                    ? renderOptimalDeck(optimalDecks[element]) 
+                                    : `<p>Pas assez de cartes ${SPLINTERLANDS_ELEMENTS[element].name} pour former un deck optimal.</p>`;
+                            }
+                        }
+                    });
+                    
+                    // Régénérer le meilleur deck global
+                    const newBestDeck = generateOptimalDeck(allCards, manaLimit);
+                    const bestDeckPanel = document.getElementById('element-panel-best');
+                    if (bestDeckPanel) {
+                        const deckSection = bestDeckPanel.querySelector('.element-header + div');
+                        if (deckSection) {
+                            deckSection.innerHTML = newBestDeck 
+                                ? renderOptimalDeck(newBestDeck) 
+                                : "<p>Pas assez de cartes pour former un deck optimal.</p>";
+                        }
+                    }
+                });
+            }
+            
+            // Afficher l'onglet "Meilleur Deck" par défaut
+            tabs[0].click();
+            
+            // Gestionnaire pour fermer l'overlay
+            document.getElementById('pkm-deck-close').addEventListener('click', () => {
+                overlay.remove();
+            });
         }
 })();
